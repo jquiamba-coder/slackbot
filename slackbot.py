@@ -18,9 +18,9 @@ BOT_ID = client.api_call("auth.test")['user_id']
 message_counts = {}
 welcome_messages = {}
 
-KEY_WORDS1 = ['2fa', 'Okta 2fa', 'reset 2fa']
-KEY_WORDS2 = ['Password', 'Okta lockout', 'reset password']
-KEY_WORDS3 = ['Slack', 'Slack Channel', 'Add to channel']
+KEY_WORDS1 = ['2fa', '2fa reset', '2fa in okta']
+KEY_WORDS2 = ['okta password', 'lockout', 'password reset']
+KEY_WORDS3 = ['jira', 'confluence', 'board', 'project']
 
 class WelcomeMessage:
     START_TEXT = {
@@ -29,7 +29,7 @@ class WelcomeMessage:
             'type': 'mrkdwn',
             'text': (
                 ':tada: Welcome to the #IT-Support channel! :tada: \n\n'
-                ' This is your IT SlackBot at your Service :robot_face:'
+                ' This is your Paxful IT SlackBot at your Service :paxbot:'
             )
         }
     }
@@ -39,7 +39,7 @@ class WelcomeMessage:
     def __init__(self, channel, user):
         self.channel = channel
         self.user = user
-        self.icon_emoji = ':robot_face:'
+        self.icon_emoji = ':paxbot:'
         self.timestamp = ''
         self.completed = False
 
@@ -83,11 +83,13 @@ def send_welcome_message(channel, user,):
 def check_if_key_words1(message):
     msg = message.lower()
     msg = msg.translate(str.maketrans('', '', string.punctuation))
+
     return any(word in msg for word in KEY_WORDS1)
 
 def check_if_key_words2(message):
     msg = message.lower()
     msg = msg.translate(str.maketrans('', '', string.punctuation))
+
     return any(word in msg for word in KEY_WORDS2)
 
 def check_if_key_words3(message):
@@ -95,16 +97,6 @@ def check_if_key_words3(message):
     msg = msg.translate(str.maketrans('', '', string.punctuation))
 
     return any(word in msg for word in KEY_WORDS3)
-
-@slack_event_adapter.on('member_joined_channel')
-def join(payload):
-    event = payload.get('event', {})
-    channel_id = event.get('channel')
-    user_id = event.get('user')
-    text = event.get('text')
-
-    if user_id != None and BOT_ID != user_id:
-        send_welcome_message(f'@{user_id}', user_id)
 
 
 @slack_event_adapter.on('message')
@@ -120,22 +112,22 @@ def message(payload):
         else:
             message_counts[user_id] = 1
 
-        if text.lower() == 'start':
-            send_welcome_message(f'@{user_id}', user_id)
-        elif check_if_key_words1(text):
+        if check_if_key_words1(text):
             ts=event.get('ts')
             client.chat_postMessage(
-                channel=channel_id, thread_ts=ts, text ="Do you need help with 2fa?")
+                channel=channel_id, thread_ts=ts, text ="Do you need help with 2fa?" )
 
         elif check_if_key_words2(text):
             ts=event.get('ts')
             client.chat_postMessage(
-                channel=channel_id, thread_ts=ts, text ="Do you need help with your Okta Password?")
-
+                channel=channel_id, thread_ts=ts, text ="Ok, hang on a minute while I get an associate to help you" )
+        
         elif check_if_key_words3(text):
             ts=event.get('ts')
             client.chat_postMessage(
-                channel=channel_id, thread_ts=ts, text ="Do you need help with your Okta Password?")
+            channel=channel_id, thread_ts=ts, text ="Do you need help with any Atlassian Products?")
+        else:
+            print(text)
 
 @slack_event_adapter.on('reaction_added')
 def reaction(payload):
