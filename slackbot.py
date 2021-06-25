@@ -19,8 +19,10 @@ message_counts = {}
 welcome_messages = {}
 
 KEY_WORDS1 = ['2fa', '2fa reset', '2fa in okta']
-KEY_WORDS2 = ['okta password', 'lockout', 'password reset']
+KEY_WORDS2 = ['unlock', 'okta password', 'lockout', 'password reset']
 KEY_WORDS3 = ['jira', 'confluence', 'board', 'project']
+KEY_WORDS4 = ['yes']
+KEY_WORDS5 = ['no']
 
 class WelcomeMessage:
     START_TEXT = {
@@ -67,17 +69,13 @@ class WelcomeMessage:
         return {'type': 'section', 'text': {'type': 'mrkdwn', 'text': text}}
 
 def send_welcome_message(channel, user,):
-        if channel not in welcome_messages:
-            welcome_messages[channel] = {}
-
-        if user in welcome_messages[channel]:
-            return
-
         welcome = WelcomeMessage(channel, user)
         message = welcome.get_message()
         response = client.chat_postMessage(**message)
         welcome.timestamp = response['ts']
 
+        if channel not in welcome_messages:
+            welcome_messages[channel] = {}
         welcome_messages[channel][user] = welcome
 
 def check_if_key_words1(message):
@@ -98,6 +96,17 @@ def check_if_key_words3(message):
 
     return any(word in msg for word in KEY_WORDS3)
 
+def check_if_key_words4(message):
+    msg = message.lower()
+    msg = msg.translate(str.maketrans('', '', string.punctuation))
+
+    return any(word in msg for word in KEY_WORDS4)
+
+def check_if_key_words5(message):
+    msg = message.lower()
+    msg = msg.translate(str.maketrans('', '', string.punctuation))
+
+    return any(word in msg for word in KEY_WORDS5)
 
 @slack_event_adapter.on('message')
 def message(payload):
@@ -107,27 +116,57 @@ def message(payload):
     text = event.get('text')
 
     if user_id != None and BOT_ID != user_id:
-        if user_id in message_counts:
-            message_counts[user_id] += 1
-        else:
-            message_counts[user_id] = 1
+            ts = event.get('ts')
+            client.chat_postMessage(
+            channel=channel_id, thread_ts=ts, text="Please hold on a minute, as all our IT Support Associates are busy at the moment" )
 
-        if check_if_key_words1(text):
-            ts=event.get('ts')
+    if check_if_key_words1(text):
+        if user_id != None and BOT_ID != user_id:
+            ts = event.get('ts')
             client.chat_postMessage(
                 channel=channel_id, thread_ts=ts, text ="Do you need help with 2fa?" )
 
-        elif check_if_key_words2(text):
-            ts=event.get('ts')
+    elif check_if_key_words2(text):
+        if user_id != None and BOT_ID != user_id:
+            ts = event.get('ts')
             client.chat_postMessage(
                 channel=channel_id, thread_ts=ts, text ="Ok, hang on a minute while I get an associate to help you" )
         
-        elif check_if_key_words3(text):
-            ts=event.get('ts')
+    elif check_if_key_words3(text):
+        if user_id != None and BOT_ID != user_id:
+            ts = event.get('ts')
             client.chat_postMessage(
             channel=channel_id, thread_ts=ts, text ="Do you need help with any Atlassian Products?")
+
+    elif check_if_key_words4(text):
+        if user_id != None and BOT_ID != user_id:
+            ts = event.get('ts')
+            client.chat_postMessage(
+            channel=channel_id, thread_ts=ts, text="Hold on a minute while i get an associate to help you")
+
+    elif check_if_key_words5(text):
+        if user_id != None and BOT_ID != user_id:
+            ts = event.get('ts')
+            client.chat_postMessage(
+            channel=channel_id, thread_ts=ts, text="Sorry, let us know how we can assist you")
+
+    else:
+        print("Connection failed. Exception traceback printed above.")
+
+@slack_event_adapter.on('member_joined_channel')
+def join(payload):
+    event = payload.get('event', {})
+    channel_id = event.get('channel')
+    user_id = event.get('user')
+    text = event.get('text')
+
+    if user_id != None and BOT_ID != user_id:
+        send_welcome_message(f'@{user_id}', user_id)
+        if user_id in message_counts:
+            message_counts[user_id] += 1
         else:
-            print(text)
+            message_counts[user_id] = 1  
+    
 
 @slack_event_adapter.on('reaction_added')
 def reaction(payload):
@@ -137,13 +176,14 @@ def reaction(payload):
 
     if f'@{user_id}' not in welcome_messages:
         return
-    
+
     welcome = welcome_messages[f'@{user_id}'][user_id]
     welcome.completed = True
     welcome.channel = channel_id
     message = welcome.get_message()
     updated_message = client.chat_update(**message)
     welcome.timestamp = updated_message['ts']
+
 
 @app.route('/message-count', methods=['POST'])
 def message_count():
